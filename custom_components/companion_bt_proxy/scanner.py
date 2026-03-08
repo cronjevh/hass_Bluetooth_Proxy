@@ -1,4 +1,7 @@
 from homeassistant.components import bluetooth
+from homeassistant.util import dt
+
+from .constants import WATCH_ADDR, WATCH_NAME_FRAGMENT, PHONE_ADDR
 
 import logging
 import base64
@@ -11,8 +14,37 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         self._connector = bluetooth.HaBluetoothConnector(client=None, source=entry.entry_id, can_connect=lambda: False)
         super().__init__(entry.entry_id, entry.title, self._connector, False)
         self._sensors = []
+        self.watch_data = None
+        self.phone_data = None
 
     async def async_process_json(self, data: dict):
+        address = data["address"]
+        name = data.get("name")
+        matched_by = None
+
+        if address == WATCH_ADDR:
+            matched_by = "address"
+        elif name and WATCH_NAME_FRAGMENT in name:
+            matched_by = "name"
+        
+        if matched_by:
+            self.watch_data = {
+                "rssi": data.get("rssi"),
+                "source_address": address,
+                "source_name": name,
+                "last_seen": dt.now(),
+                "matched_by": matched_by,
+            }
+
+        if address == PHONE_ADDR:
+            self.phone_data = {
+                "rssi": data.get("rssi"),
+                "source_address": address,
+                "source_name": name,
+                "last_seen": dt.now(),
+                "matched_by": "address",
+            }
+
         service_data = {key: base64.b64decode(value) for (key, value) in data.get("service_data", {}).items()}
         m_data = {int(key, 10): base64.b64decode(value) for (key, value) in data.get("manufacturer_data", {}).items()}
         _LOGGER.debug(f"async_process_json: {data}, {service_data}, {m_data}")
