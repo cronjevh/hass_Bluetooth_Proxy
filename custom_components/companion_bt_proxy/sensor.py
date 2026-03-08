@@ -1,4 +1,6 @@
 from homeassistant.components import sensor
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import UnitOfPower
 from homeassistant.util import dt
 from homeassistant.helpers.entity import EntityCategory
 
@@ -9,7 +11,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_setup_entities):
     scanner = entry.runtime_data
-    async_setup_entities([_LastUpdate(scanner, entry)])
+    async_setup_entities([
+        _LastUpdate(scanner, entry),
+        _WatchRssiSensor(scanner, entry),
+        _PhoneRssiSensor(scanner, entry),
+    ])
 
 class _LastUpdate(sensor.SensorEntity):
 
@@ -24,23 +30,91 @@ class _LastUpdate(sensor.SensorEntity):
 
         scanner._sensors.append(self)
 
-        self._value = None
+        self._attr_native_value = None
         self._entry_id = entry.entry_id
         self._device_name = entry.title
 
     async def async_on_scanner_update(self, scanner):
-        self._value = dt.now()
+        self._attr_native_value = dt.now()
         self.async_write_ha_state()
-
-    @property
-    def native_value(self) -> str | None:
-        return self._value
 
     @property
     def device_info(self):
         return {
             "identifiers": {
-                ("entry_id", self._entry_id), 
+                (DOMAIN, self._entry_id),
+            },
+            "name": self._device_name,
+        }
+
+class _WatchRssiSensor(sensor.SensorEntity):
+    def __init__(self, scanner, entry):
+        self._attr_unique_id = "monica_watch_rssi"
+        self._attr_name = "Monica Watch RSSI"
+        self._attr_native_unit_of_measurement = UnitOfPower.DECIBELS_MILLIWATT
+        self._attr_device_class = None
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_available = False
+        self._attr_extra_state_attributes = {}
+        self._attr_native_value = None
+
+        self._entry_id = entry.entry_id
+        self._device_name = entry.title
+        scanner._sensors.append(self)
+
+    async def async_on_scanner_update(self, scanner):
+        if scanner.watch_data:
+            self._attr_available = True
+            self._attr_native_value = scanner.watch_data["rssi"]
+            self._attr_extra_state_attributes = {
+                "source_address": scanner.watch_data["source_address"],
+                "source_name": scanner.watch_data["source_name"],
+                "last_seen": scanner.watch_data["last_seen"],
+                "matched_by": scanner.watch_data["matched_by"],
+            }
+            self.async_write_ha_state()
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {
+                (DOMAIN, self._entry_id),
+            },
+            "name": self._device_name,
+        }
+
+class _PhoneRssiSensor(sensor.SensorEntity):
+    def __init__(self, scanner, entry):
+        self._attr_unique_id = "monica_phone_rssi"
+        self._attr_name = "Monica Phone RSSI"
+        self._attr_native_unit_of_measurement = UnitOfPower.DECIBELS_MILLIWATT
+        self._attr_device_class = None
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_available = False
+        self._attr_extra_state_attributes = {}
+        self._attr_native_value = None
+
+        self._entry_id = entry.entry_id
+        self._device_name = entry.title
+        scanner._sensors.append(self)
+
+    async def async_on_scanner_update(self, scanner):
+        if scanner.phone_data:
+            self._attr_available = True
+            self._attr_native_value = scanner.phone_data["rssi"]
+            self._attr_extra_state_attributes = {
+                "source_address": scanner.phone_data["source_address"],
+                "source_name": scanner.phone_data["source_name"],
+                "last_seen": scanner.phone_data["last_seen"],
+                "matched_by": scanner.phone_data["matched_by"],
+            }
+            self.async_write_ha_state()
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {
+                (DOMAIN, self._entry_id),
             },
             "name": self._device_name,
         }
