@@ -1,6 +1,6 @@
 from homeassistant.components import sensor
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfPower
+from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT
 from homeassistant.util import dt
 from homeassistant.helpers.entity import EntityCategory
 
@@ -51,7 +51,7 @@ class _WatchRssiSensor(sensor.SensorEntity):
     def __init__(self, scanner, entry):
         self._attr_unique_id = "monica_watch_rssi"
         self._attr_name = "Monica Watch RSSI"
-        self._attr_native_unit_of_measurement = UnitOfPower.DBM
+        self._attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
         self._attr_device_class = None
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_available = False
@@ -87,7 +87,7 @@ class _PhoneRssiSensor(sensor.SensorEntity):
     def __init__(self, scanner, entry):
         self._attr_unique_id = "monica_phone_rssi"
         self._attr_name = "Monica Phone RSSI"
-        self._attr_native_unit_of_measurement = UnitOfPower.DBM
+        self._attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
         self._attr_device_class = None
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_available = False
