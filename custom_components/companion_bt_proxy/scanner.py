@@ -16,6 +16,12 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         self._sensors = []
         self.watch_data = None
         self.phone_data = None
+        self.last_webhook_received = None
+        self.last_payload_device_count = 0
+
+    def async_note_webhook(self, device_count: int):
+        self.last_webhook_received = dt.now()
+        self.last_payload_device_count = device_count
 
     async def async_process_json(self, data: dict):
         address = data["address"]
