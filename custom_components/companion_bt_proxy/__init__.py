@@ -26,7 +26,7 @@ async def _async_handle_webhook(hass, webhook_id, request):
         return json_response([])
     _LOGGER.debug(f"JSON: {message}")
     if scanner := hass.data[DOMAIN]["scanners"].get(hass.data[DOMAIN]["webhooks"].get(webhook_id)):
-        scanner.async_note_webhook(len(message))
+        scanner.async_begin_webhook(len(message))
         for item in message:
             await scanner.async_process_json(item)
         await scanner.async_update_sensors()

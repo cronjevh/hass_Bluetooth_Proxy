@@ -41,6 +41,10 @@ class _LastUpdate(sensor.SensorEntity):
         self._attr_extra_state_attributes = {
             "payload_device_count": payloadCount,
             "scanner_status": "alive_no_devices" if payloadCount == 0 else "alive_with_devices",
+            "watch_last_seen": scanner.watch_last_seen,
+            "phone_last_seen": scanner.phone_last_seen,
+            "watch_available": scanner.watch_data is not None,
+            "phone_available": scanner.phone_data is not None,
         }
         self.async_write_ha_state()
 
@@ -84,6 +88,7 @@ class _WatchRssiSensor(sensor.SensorEntity):
             self._attr_available = False
             self._attr_native_value = None
             self._attr_extra_state_attributes = {
+                "last_seen": scanner.watch_last_seen,
                 "scanner_last_webhook": scanner.last_webhook_received,
                 "last_payload_device_count": scanner.last_payload_device_count,
             }
@@ -129,6 +134,7 @@ class _PhoneRssiSensor(sensor.SensorEntity):
             self._attr_available = False
             self._attr_native_value = None
             self._attr_extra_state_attributes = {
+                "last_seen": scanner.phone_last_seen,
                 "scanner_last_webhook": scanner.last_webhook_received,
                 "last_payload_device_count": scanner.last_payload_device_count,
             }

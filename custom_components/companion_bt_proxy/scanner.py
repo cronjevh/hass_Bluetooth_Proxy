@@ -16,12 +16,18 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         self._sensors = []
         self.watch_data = None
         self.phone_data = None
+        self.watch_last_seen = None
+        self.phone_last_seen = None
         self.last_webhook_received = None
         self.last_payload_device_count = 0
 
-    def async_note_webhook(self, device_count: int):
+    def async_begin_webhook(self, device_count: int):
         self.last_webhook_received = dt.now()
         self.last_payload_device_count = device_count
+        # Each webhook payload is treated as the full current snapshot.
+        # Devices omitted from the payload are out of range and become unavailable.
+        self.watch_data = None
+        self.phone_data = None
 
     async def async_process_json(self, data: dict):
         address = data["address"]
@@ -34,22 +40,26 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
             matched_by = "name"
         
         if matched_by:
+            seen_at = dt.now()
             self.watch_data = {
                 "rssi": data.get("rssi"),
                 "source_address": address,
                 "source_name": name,
-                "last_seen": dt.now(),
+                "last_seen": seen_at,
                 "matched_by": matched_by,
             }
+            self.watch_last_seen = seen_at
 
         if address == PHONE_ADDR:
+            seen_at = dt.now()
             self.phone_data = {
                 "rssi": data.get("rssi"),
                 "source_address": address,
                 "source_name": name,
-                "last_seen": dt.now(),
+                "last_seen": seen_at,
                 "matched_by": "address",
             }
+            self.phone_last_seen = seen_at
 
         service_data = {key: base64.b64decode(value) for (key, value) in data.get("service_data", {}).items()}
         m_data = {int(key, 10): base64.b64decode(value) for (key, value) in data.get("manufacturer_data", {}).items()}
