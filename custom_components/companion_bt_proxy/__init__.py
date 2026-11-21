@@ -25,9 +25,22 @@ async def _async_handle_webhook(hass, webhook_id, request):
         _LOGGER.warning(f"Invalid JSON in Webhook")
         return json_response([])
     _LOGGER.debug(f"JSON: {message}")
+    scan_meta = None
+    devices = message
+    if isinstance(message, dict):
+        scan_meta = message.get("scan_meta")
+        devices = message.get("devices", [])
+    elif not isinstance(message, list):
+        _LOGGER.warning(f"Unexpected webhook payload type: {type(message)}")
+        return json_response([])
+
+    if not isinstance(devices, list):
+        _LOGGER.warning("Webhook devices payload is not a list")
+        return json_response([])
+
     if scanner := hass.data[DOMAIN]["scanners"].get(hass.data[DOMAIN]["webhooks"].get(webhook_id)):
-        scanner.async_begin_webhook(len(message))
-        for item in message:
+        scanner.async_begin_webhook(len(devices), scan_meta)
+        for item in devices:
             await scanner.async_process_json(item)
         await scanner.async_update_sensors()
     else:
