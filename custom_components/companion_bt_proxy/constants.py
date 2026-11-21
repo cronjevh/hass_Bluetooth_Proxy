@@ -13,6 +13,12 @@ TRACKED_DEVICES = [
         "address": "C4:16:8F:A0:0A:14",
         "name_fragment": None,
     },
+    {
+        "slug": "monica_phone",
+        "label": "Monica Phone",
+        "address": "29:17:5D:AB:4D:28",
+        "name_fragment": None,
+    },
 ]
 
 CANARY_ADDR = "FC:E2:EC:43:74:43"
