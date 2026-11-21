@@ -1,12 +1,18 @@
 from homeassistant.components import bluetooth
 from homeassistant.util import dt
+from datetime import datetime, timezone
 
-from .constants import WATCH_ADDR, WATCH_NAME_FRAGMENT, PHONE_ADDR
+from .constants import (
+    TRACKED_DEVICES,
+    CANARY_ADDR,
+    CANARY_NAME_FRAGMENT,
+)
 
 import logging
 import base64
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
 
@@ -14,52 +20,81 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         self._connector = bluetooth.HaBluetoothConnector(client=None, source=entry.entry_id, can_connect=lambda: False)
         super().__init__(entry.entry_id, entry.title, self._connector, False)
         self._sensors = []
-        self.watch_data = None
-        self.phone_data = None
-        self.watch_last_seen = None
-        self.phone_last_seen = None
+        # Per tracked-device state, keyed by slug: latest record and last-seen timestamp.
+        self.tracked_data: dict[str, dict | None] = {d["slug"]: None for d in TRACKED_DEVICES}
+        self.tracked_last_seen: dict[str, datetime | None] = {d["slug"]: None for d in TRACKED_DEVICES}
+        self.canary_data = None
+        self.canary_last_seen = None
         self.last_webhook_received = None
         self.last_payload_device_count = 0
+        self.last_scan_meta = {}
 
-    def async_begin_webhook(self, device_count: int):
+    def _parse_meta_timestamp(self, timestamp_ms):
+        if timestamp_ms in (None, ""):
+            return None
+        try:
+            return datetime.fromtimestamp(float(timestamp_ms) / 1000.0, tz=timezone.utc)
+        except (TypeError, ValueError, OSError):
+            return None
+
+    def async_begin_webhook(self, device_count: int, scan_meta=None):
         self.last_webhook_received = dt.now()
         self.last_payload_device_count = device_count
+        scan_meta = scan_meta or {}
+        self.last_scan_meta = {
+            "status": scan_meta.get("status"),
+            "status_reason": scan_meta.get("status_reason"),
+            "permissions_granted": scan_meta.get("permissions_granted"),
+            "bluetooth_enabled": scan_meta.get("bluetooth_enabled"),
+            "scan_started": self._parse_meta_timestamp(scan_meta.get("scan_started_timestamp")),
+            "scan_finished": self._parse_meta_timestamp(scan_meta.get("scan_finished_timestamp")),
+            "total_devices_seen": scan_meta.get("total_devices_seen"),
+            "matched_device_count": scan_meta.get("matched_device_count"),
+            "bonded_device_count": scan_meta.get("bonded_device_count"),
+            "canary_seen": scan_meta.get("canary_seen"),
+            "scan_mode": scan_meta.get("scan_mode"),
+        }
         # Each webhook payload is treated as the full current snapshot.
         # Devices omitted from the payload are out of range and become unavailable.
-        self.watch_data = None
-        self.phone_data = None
+        for slug in self.tracked_data:
+            self.tracked_data[slug] = None
+        self.canary_data = None
 
     async def async_process_json(self, data: dict):
         address = data["address"]
         name = data.get("name")
-        matched_by = None
 
-        if address == WATCH_ADDR:
-            matched_by = "address"
-        elif name and WATCH_NAME_FRAGMENT in name:
-            matched_by = "name"
-        
-        if matched_by:
+        for device in TRACKED_DEVICES:
+            slug = device["slug"]
+            matched_by = None
+            if address == device["address"]:
+                matched_by = "address"
+            elif device["name_fragment"] and name and device["name_fragment"] in name:
+                matched_by = "name"
+            if not matched_by:
+                continue
             seen_at = dt.now()
-            self.watch_data = {
+            self.tracked_data[slug] = {
                 "rssi": data.get("rssi"),
                 "source_address": address,
                 "source_name": name,
                 "last_seen": seen_at,
                 "matched_by": matched_by,
             }
-            self.watch_last_seen = seen_at
+            self.tracked_last_seen[slug] = seen_at
 
-        if address == PHONE_ADDR:
+        canary_name = (name or "").upper()
+        if address == CANARY_ADDR or CANARY_NAME_FRAGMENT.upper() in canary_name:
             seen_at = dt.now()
-            self.phone_data = {
+            matched_by = "address" if address == CANARY_ADDR else "name"
+            self.canary_data = {
                 "rssi": data.get("rssi"),
                 "source_address": address,
                 "source_name": name,
                 "last_seen": seen_at,
-                "matched_by": "address",
+                "matched_by": matched_by,
             }
-            self.phone_last_seen = seen_at
+            self.canary_last_seen = seen_at
 
         service_data = {key: base64.b64decode(value) for (key, value) in data.get("service_data", {}).items()}
         m_data = {int(key, 10): base64.b64decode(value) for (key, value) in data.get("manufacturer_data", {}).items()}

@@ -1,7 +1,19 @@
 DOMAIN = "companion_bt_proxy"
 PLATFORMS = ["sensor"]
 
-# Hardcoded devices
-WATCH_ADDR = "F8:5B:6E:9F:1E:CD"
-WATCH_NAME_FRAGMENT = "4DYY"
-PHONE_ADDR = "A0:7D:9C:68:5C:B7"
+# Tracked devices, one entry per device.
+#   slug:    stable key -> entity unique_id is "<slug>_rssi"
+#   label:   entity friendly name prefix
+#   address: Bluetooth address as seen by the Android scanner
+#   name_fragment: optional advertised-name fallback (case-insensitive)
+TRACKED_DEVICES = [
+    {
+        "slug": "cronje_phone",
+        "label": "Cronje Phone",
+        "address": "C4:16:8F:A0:0A:14",
+        "name_fragment": None,
+    },
+]
+
+CANARY_ADDR = "FC:E2:EC:43:74:43"
+CANARY_NAME_FRAGMENT = "CHR68437443"
