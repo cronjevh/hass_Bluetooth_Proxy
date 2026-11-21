@@ -21,5 +21,9 @@ TRACKED_DEVICES = [
     },
 ]
 
+# A tracked device stays available for this long after its last sighting, so a
+# single missed scan cycle does not flip the sensor to unavailable.
+STALE_AFTER_SECONDS = 30
+
 CANARY_ADDR = "FC:E2:EC:43:74:43"
 CANARY_NAME_FRAGMENT = "CHR68437443"

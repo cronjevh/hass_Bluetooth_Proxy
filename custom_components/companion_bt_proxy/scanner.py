@@ -54,11 +54,9 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
             "canary_seen": scan_meta.get("canary_seen"),
             "scan_mode": scan_meta.get("scan_mode"),
         }
-        # Each webhook payload is treated as the full current snapshot.
-        # Devices omitted from the payload are out of range and become unavailable.
-        for slug in self.tracked_data:
-            self.tracked_data[slug] = None
-        self.canary_data = None
+        # Payloads are snapshots, but the last record per device is kept:
+        # availability is derived from last_seen age (STALE_AFTER_SECONDS), so a
+        # single missed scan does not flip sensors to unavailable.
 
     async def async_process_json(self, data: dict):
         address = data["address"]

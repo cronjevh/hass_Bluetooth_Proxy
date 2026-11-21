@@ -1,9 +1,10 @@
 from homeassistant.components import sensor
 from homeassistant.components.sensor import SensorStateClass
 from homeassistant.util import dt
+from datetime import timedelta
 from homeassistant.helpers.entity import EntityCategory
 
-from .constants import DOMAIN, TRACKED_DEVICES
+from .constants import DOMAIN, TRACKED_DEVICES, STALE_AFTER_SECONDS
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -36,11 +37,16 @@ class _LastUpdate(sensor.SensorEntity):
     async def async_on_scanner_update(self, scanner):
         self._attr_native_value = scanner.last_webhook_received or dt.now()
         payloadCount = scanner.last_payload_device_count
+        now = dt.now()
+        canary_fresh = (
+            scanner.canary_last_seen is not None
+            and (now - scanner.canary_last_seen) <= timedelta(seconds=STALE_AFTER_SECONDS)
+        )
         attributes = {
             "payload_device_count": payloadCount,
             "scanner_status": "alive_no_devices" if payloadCount == 0 else "alive_with_devices",
             "canary_last_seen": scanner.canary_last_seen,
-            "canary_available": scanner.canary_data is not None,
+            "canary_available": canary_fresh and scanner.canary_data is not None,
             "last_scan_status": scanner.last_scan_meta.get("status"),
             "last_scan_status_reason": scanner.last_scan_meta.get("status_reason"),
             "last_scan_started": scanner.last_scan_meta.get("scan_started"),
@@ -55,8 +61,10 @@ class _LastUpdate(sensor.SensorEntity):
         }
         for device in TRACKED_DEVICES:
             slug = device["slug"]
-            attributes[f"{slug}_last_seen"] = scanner.tracked_last_seen.get(slug)
-            attributes[f"{slug}_available"] = scanner.tracked_data.get(slug) is not None
+            last_seen = scanner.tracked_last_seen.get(slug)
+            fresh = last_seen is not None and (now - last_seen) <= timedelta(seconds=STALE_AFTER_SECONDS)
+            attributes[f"{slug}_last_seen"] = last_seen
+            attributes[f"{slug}_available"] = fresh and scanner.tracked_data.get(slug) is not None
         self._attr_extra_state_attributes = attributes
         self.async_write_ha_state()
 
@@ -88,7 +96,8 @@ class _TrackedRssiSensor(sensor.SensorEntity):
     async def async_on_scanner_update(self, scanner):
         data = scanner.tracked_data.get(self._slug)
         last_seen = scanner.tracked_last_seen.get(self._slug)
-        if data:
+        fresh = last_seen is not None and (dt.now() - last_seen) <= timedelta(seconds=STALE_AFTER_SECONDS)
+        if data and fresh:
             self._attr_available = True
             self._attr_native_value = data["rssi"]
             self._attr_extra_state_attributes = {
