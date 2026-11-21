@@ -14,8 +14,8 @@ TRACKED_DEVICES = [
         "name_fragment": None,
     },
     {
-        "slug": "monica_phone",
-        "label": "Monica Phone",
+        "slug": "monica_watch",
+        "label": "Monica Watch",
         "address": "29:17:5D:AB:4D:28",
         "name_fragment": None,
     },
